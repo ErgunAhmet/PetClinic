@@ -11,7 +11,7 @@ import java.util.Set;
 
 @Service
 @Profile("springdatajpa")
-public class VetSDJpaService extends VetService {
+public class VetSDJpaService implements VetService {
     private final VetRepository vetRepository;
 
     public VetSDJpaService(VetRepository vetRepository) {
