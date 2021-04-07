@@ -12,7 +12,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import static org.hamcrest.Matchers.hasSize;
+
+import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
@@ -63,6 +65,25 @@ class OwnerControllerTest {
         } catch (Exception e){
 
         }
+    }
+    @SneakyThrows
+    @Test
+    void listOwnersByIndex() {
+        when(ownerService.findAll()).thenReturn(owners);
 
+        mockMvc.perform(get("/owners/index"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("owners/index"))
+                .andExpect(model().attribute("owners", hasSize(2)));
+    }
+    @SneakyThrows
+    @Test
+    void DisplayOwners() {
+        when(ownerService.findById(anyLong())).thenReturn(Owner.builder().id(1L).build());
+
+        mockMvc.perform(get("/owners/123"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("owners/ownerDetails"))
+                .andExpect(model().attribute("owner", hasProperty("id", is(1l))));
     }
 }
