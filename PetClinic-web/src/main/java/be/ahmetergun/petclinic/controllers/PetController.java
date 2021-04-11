@@ -13,6 +13,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
 
+import javax.transaction.Transactional;
 import javax.validation.Valid;
 import java.util.Collection;
 
@@ -57,17 +58,16 @@ public class PetController {
 
     @PostMapping("/pets/new")
     public String processCreationForm(Owner owner, @Valid Pet pet, BindingResult result, Model model) {
-        if (StringUtils.hasLength(pet.getName()) && pet.isNew() && owner.getPet(pet.getName(), true) != null) {
+        if (StringUtils.hasLength(pet.getName()) && pet.isNew() && owner.getPet(pet.getName(), true) != null){
             result.rejectValue("name", "duplicate", "already exists");
         }
-        owner.getPets().add(pet);
+        pet.setOwner(owner);
         if (result.hasErrors()) {
             model.addAttribute("pet", pet);
             return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
-        }
-        else {
+        } else {
             petService.save(pet);
-            pet.setOwner(owner);
+
             return "redirect:/owners/" + owner.getId();
         }
     }
@@ -78,17 +78,37 @@ public class PetController {
     }
 
     @PostMapping("/pets/{petId}/edit")
-    public String processUpdateForm(@Valid Pet pet, BindingResult result, Owner owner, Model model) {
-        if (result.hasErrors()) {
-            pet.setOwner(owner);
+    public String processUpdatePetForm(@ModelAttribute("owner") Owner owner,
+                                       @Valid @ModelAttribute("pet") Pet pet,
+                                       @PathVariable String petId, BindingResult bindingResult,
+                                       Model model) {
+// validate the input data
+        if (StringUtils.hasLength(pet.getName())) {
+            Pet foundPet = owner.getPet(pet.getName());
+            if (foundPet!=null && !foundPet.getId().equals(Long.valueOf(petId))) {
+                bindingResult.rejectValue("name", "duplicate", "already used for other pet for this owner");
+            }
+        }
+        if (!StringUtils.hasLength(pet.getName())) {
+            bindingResult.rejectValue("name", "null", "name of pet cannot be empty");
+        }
+        pet.setOwner(owner);
+        if (bindingResult.hasErrors()) {
             model.addAttribute("pet", pet);
-            return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+            return "pets/createOrUpdatePet";
         }
-        else {
-            owner.getPets().add(pet);
-            pet.setOwner(owner);
-            petService.save(pet);
-            return "redirect:/owners/" + owner.getId();
-        }
+// update the pet information in database
+// when apply the hibernate db, data store in db in sql style,
+// all the java model only created after apply CrudRepository to retrieve
+// data from database; or created before apply crudRepository to store data to database
+// Therefore, there is no need to update the pet set in owner model.
+// Instead of it, only to maintain the relationship between pet and owner in hibernate db.
+        Pet foundPet = petService.findById(Long.valueOf(petId));
+        foundPet.setOwner(owner);
+        foundPet.setPetType(pet.getPetType());
+        foundPet.setName(pet.getName());
+        foundPet.setBirthDate(pet.getBirthDate());
+        petService.save(foundPet);
+        return "redirect:/owners/" + owner.getId();
     }
 }
